@@ -24,12 +24,45 @@ function tagText() {
         traverse.default(ast, {
           JSXElement(path) {
             path.node.children.forEach((child) => {
+              // <div>{"中文文本"}</div>
+              if (
+                child.type === "JSXExpressionContainer" &&
+                child.expression.type === "StringLiteral"
+              ) {
+                // 为文本增加计数器
+                child.expression.value = `${child.expression.value}@marked`;
+              }
+
+              //  <div>中文文本</div>
               if (child.type === "JSXText" && child.value.trim().length > 0) {
                 // 为文本增加计数器
-                console.log("文本内容", child.value);
                 child.value = `${child.value}@marked`;
               }
             });
+          },
+          VariableDeclarator(path) {
+            // const text = "中文文本";
+            if (path.node.id.type === "Identifier") {
+              if (path.node.init?.type === "StringLiteral") {
+                path.node.init.value = `${path.node.init.value}@marked`;
+              }
+            }
+          },
+          TemplateElement(path) {
+            // const text2 = `${text} | 中文文本`;
+            if (path.node.value.raw.trim().length > 0) {
+              path.node.value.raw = `${path.node.value.raw}@marked`;
+            }
+          },
+          JSXAttribute(path) {
+            // <input type="text" value="中文文本" />
+            console.log(path.node.name.name);
+            if (
+              path.node.name.name === "value" &&
+              path.node.value?.type === "StringLiteral"
+            ) {
+              path.node.value.value = `${path.node.value.value}@marked`;
+            }
           },
         });
 
