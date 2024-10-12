@@ -5,11 +5,11 @@ enum Colors {
 
 function App() {
   const text = "中文文本";
-  const text2 = `${text}中文文本`;
+  const text2 = `${text} | 中文文本`;
 
   return (
     <>
-      {"中文文本"}
+      <div>{"中文文本"}</div>
       <div>中文文本</div>
       <div>{text}</div>
       <div>{text2}</div>
