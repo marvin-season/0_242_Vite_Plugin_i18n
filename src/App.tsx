@@ -1,5 +1,23 @@
+enum Colors {
+  key1 = "中文文本",
+  "中文Key" = "中文文本",
+}
+
 function App() {
-  return <div>hi</div>;
+  const text = "中文文本";
+  const text2 = `${text}中文文本`;
+
+  return (
+    <>
+      {"中文文本"}
+      <div>中文文本</div>
+      <div>{text}</div>
+      <div>{text2}</div>
+      <input type="text" value="中文文本" />
+      <div>{Colors.key1}</div>
+      <div>{Colors.中文Key}</div>
+    </>
+  );
 }
 
 export default App;
