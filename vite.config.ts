@@ -18,7 +18,10 @@ function tagText() {
   return {
     name: "vite-plugin-tag-text",
     enforce: "pre" as const,
-    config(_: unknown, { command }: unknown) {
+    config(
+      _: unknown,
+      { command }: { command: "build" | "serve"; mode: string }
+    ) {
       // 判断当前是否处于 build 模式
       isBuild = command === "build";
     },
