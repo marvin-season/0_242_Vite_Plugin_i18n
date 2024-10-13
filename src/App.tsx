@@ -1,3 +1,5 @@
+import "./App.css";
+
 enum Colors {
   key1 = "中文文本",
   "中文Key" = "中文文本",
