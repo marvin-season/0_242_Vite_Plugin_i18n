@@ -4,15 +4,25 @@ import { parse } from "@babel/parser";
 import * as babelTraverse from "@babel/traverse";
 import * as babelGenerate from "@babel/generator";
 import path from "path";
+import fs from "fs";
+import { stringify } from "csv-stringify/sync";
 
 const traverse = babelTraverse.default;
 const generate = babelGenerate.default;
+const csvFilePath = path.relative(process.cwd(), "translation_keys.csv");
 
 function tagText() {
+  let isBuild = false;
+  const translationRecords: Array<{ key: string; text: string }> = [];
+
   return {
     name: "vite-plugin-tag-text",
     enforce: "pre" as const,
-    transform(code, id) {
+    config(_: unknown, { command }: unknown) {
+      // 判断当前是否处于 build 模式
+      isBuild = command === "build";
+    },
+    transform(code: string, id: string) {
       // 只处理 .tsx 文件
       if (id.endsWith(".tsx")) {
         const filename = path.relative(process.cwd(), id);
@@ -26,57 +36,77 @@ function tagText() {
           plugins: ["typescript", "jsx"],
         });
 
-        function getMarkedText() {
-          return `${filename}_${idx++}`;
+        function getMarkedText(text: string) {
+          const key = `${filename}_${idx++}`;
+          translationRecords.push({ key, text });
+          return key;
         }
 
         traverse.default(ast, {
-          JSXElement(path) {
-            path.node.children.forEach((child) => {
-              // <div>{"中文文本"}</div>
-              if (
-                child.type === "JSXExpressionContainer" &&
-                child.expression.type === "StringLiteral"
-              ) {
-                // 为文本增加计数器
-                child.expression.value = `${
-                  child.expression.value
-                }${getMarkedText()}`;
-              }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          JSXElement(path: { node: { children: any[] } }) {
+            path.node.children.forEach(
+              (child: {
+                type: string;
+                expression: { type: string; value: string };
+                value: string;
+              }) => {
+                // <div>{"中文文本"}</div>
+                if (
+                  child.type === "JSXExpressionContainer" &&
+                  child.expression.type === "StringLiteral"
+                ) {
+                  // 为文本增加计数器
+                  child.expression.value = `${
+                    child.expression.value
+                  }${getMarkedText(child.expression.value)}`;
+                }
 
-              //  <div>中文文本</div>
-              if (child.type === "JSXText" && child.value.trim().length > 0) {
-                // 为文本增加计数器
-                child.value = `${child.value}${getMarkedText()}`;
+                //  <div>中文文本</div>
+                if (child.type === "JSXText" && child.value.trim().length > 0) {
+                  // 为文本增加计数器
+                  child.value = `${child.value}${getMarkedText(child.value)}`;
+                }
               }
-            });
+            );
           },
-          VariableDeclarator(path) {
+          VariableDeclarator(path: {
+            node: {
+              id: { type: string };
+              init: { type: string; value: string };
+            };
+          }) {
             // const text = "中文文本";
             if (path.node.id.type === "Identifier") {
               if (path.node.init?.type === "StringLiteral") {
-                path.node.init.value = `${
+                path.node.init.value = `${path.node.init.value}${getMarkedText(
                   path.node.init.value
-                }${getMarkedText()}`;
+                )}`;
               }
             }
           },
-          TemplateElement(path) {
+          TemplateElement(path: { node: { value: { raw: string } } }) {
             // const text2 = `${text} | 中文文本`;
             if (path.node.value.raw.trim().length > 0) {
-              path.node.value.raw = `${path.node.value.raw}${getMarkedText()}`;
+              path.node.value.raw = `${path.node.value.raw}${getMarkedText(
+                path.node.value.raw
+              )}`;
             }
           },
-          JSXAttribute(path) {
+          JSXAttribute(path: {
+            node: {
+              name: { name: string };
+              value: { type: string; value: string };
+            };
+          }) {
             // <input type="text" value="中文文本" />
-            console.log(path.node.name.name);
             if (
               path.node.name.name === "value" &&
               path.node.value?.type === "StringLiteral"
             ) {
-              path.node.value.value = `${
+              path.node.value.value = `${path.node.value.value}${getMarkedText(
                 path.node.value.value
-              }${getMarkedText()}`;
+              )}`;
             }
           },
         });
@@ -86,6 +116,17 @@ function tagText() {
 
         // 写入修改后的代码到文件
         // fs.writeFileSync(id, output, "utf-8");
+
+        // 写入 csv 文件
+        if (isBuild) {
+          // 生成 CSV 内容
+          const csvContent = stringify(translationRecords, {
+            header: true,
+            columns: ["key", "text"], // 定义 CSV 列
+          });
+          // 写入 CSV 文件
+          fs.writeFileSync(csvFilePath, csvContent, "utf-8");
+        }
 
         return output; // 返回修改后的代码
       }
