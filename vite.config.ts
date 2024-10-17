@@ -47,14 +47,9 @@ function tagText() {
         }
 
         traverse(ast, {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          JSXElement(path: { node: { children: any[] } }) {
+          JSXElement(path) {
             path.node.children.forEach(
-              (child: {
-                type: string;
-                expression: { type: string; value: string };
-                value: string;
-              }) => {
+              (child) => {
                 // <div>{"中文文本"}</div>
                 if (
                   child.type === "JSXExpressionContainer" &&
