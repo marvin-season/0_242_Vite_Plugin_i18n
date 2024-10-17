@@ -25,6 +25,7 @@ export const i18nPlugin: () => PluginOption = () => {
         configResolved() {
             console.log('i18n-plugin loaded');
         },
+        // 在此lifecycle中code还是开发中的源代码
         load(id) {
             // 过滤掉非 JavaScript/TypeScript 文件
             if (!id.match(/\.(tsx)$/)) return;
@@ -38,6 +39,7 @@ export const i18nPlugin: () => PluginOption = () => {
                 plugins: ['jsx', "typescript"],
             });
 
+            // 将匹配到的类型转换为 StringLiteral,在 StringLiteral中统一对中文进行处理
             traverse(ast, {
                 JSXText(path) {
                     const {node} = path;
@@ -54,7 +56,8 @@ export const i18nPlugin: () => PluginOption = () => {
                 TemplateLiteral: function (path) {
                     const {node} = path;
                     const {expressions, quasis} = node;
-                    // todo 获取所有quasis中value 不为空和数字的, 如果不为末尾,记录前面有几个''
+                    // convert `hello ${name} world` to `${'hello'} ${name} ${'world'}`
+                    // ast: [a,b,a] => [a,b,a,b,a,b,a], a: 空隙或者字符串, b: 表达式
                     let enCountExpressions = 0;
                     quasis.forEach((node, index) => {
                         const {
@@ -85,7 +88,7 @@ export const i18nPlugin: () => PluginOption = () => {
                         return
                     }
 
-                    console.log('originalValue', originalValue);
+                    // tag of the chinese string
                     const fileName = id.replace(/^(.*)(src.*)$/, '$2').replace(/\//g, '#')
                     const position = `${node.loc?.start.line}#${node.loc?.start.column}`;
                     translationRecords.push({key: `${fileName}#${position}`, text: originalValue});
@@ -93,14 +96,10 @@ export const i18nPlugin: () => PluginOption = () => {
                     // 构造新的字符串，包含文件名称和位置信息
                     const newValue = `${originalValue} [${fileName}#${position}]`;
                     const newNode = types.stringLiteral(newValue);
-                    // 将信息写入到excel中
-                    // Example usage
-                    // const newRecord = {fileName, originalValue, newValue};
-                    // appendRecordToExcel(newRecord);
                     // 替换原来的字符串节点
                     path.replaceWith(newNode);
-                    // 替换原来的字符串节点
 
+                    // 跳过当前节点的后续子节点处理
                     path.skip();
                 },
             });
