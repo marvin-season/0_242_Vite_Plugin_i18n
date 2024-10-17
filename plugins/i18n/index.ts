@@ -81,23 +81,28 @@ export const i18nPlugin: () => PluginOption = () => {
                     quasis[quasis.length - 1].tail = true;
                 },
                 StringLiteral(path) {
-                    const {node} = path;
+                    const {node, parent} = path;
                     const originalValue = node.value;
 
                     if (!includesChinese(originalValue)) {
                         return
                     }
 
+                    // 排除 中文枚举 key
+                    if (parent.type === 'TSEnumMember' && node === parent.id) {
+                        return
+                    }
+
                     // tag of the chinese string
                     const fileName = id.replace(/^(.*)(src.*)$/, '$2').replace(/\//g, '#')
                     const position = `${node.loc?.start.line}#${node.loc?.start.column}`;
+
                     translationRecords.push({key: `${fileName}#${position}`, text: originalValue});
 
                     // 构造新的字符串，包含文件名称和位置信息
                     const newValue = `${originalValue} [${fileName}#${position}]`;
-                    const newNode = types.stringLiteral(newValue);
                     // 替换原来的字符串节点
-                    path.replaceWith(newNode);
+                    path.replaceWith(types.stringLiteral(newValue));
 
                     // 跳过当前节点的后续子节点处理
                     path.skip();
