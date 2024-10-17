@@ -4,15 +4,24 @@ import babelGenerate from '@babel/generator';
 import types from '@babel/types';
 import fs from 'fs'
 import {PluginOption} from 'vite';
+import {stringify} from "csv-stringify/sync";
+import path from "path";
 
 const traverse = (babelTraverse as unknown as { default: typeof babelTraverse; }).default;
 const generate = (babelGenerate as unknown as { default: typeof babelGenerate; }).default;
 
+const csvFilePath = path.relative(process.cwd(), "translation_keys.csv");
 const includesChinese = (v: string) => /[\u4e00-\u9fa5]+/g.test(v);
 
 export const i18nPlugin: () => PluginOption = () => {
+    let isBuild = false;
+    const translationRecords: Array<{ key: string; text: string }> = [];
+
     return {
         name: 'i18n-plugin',
+        config: (_, {command}) => {
+            isBuild = command === "build";
+        },
         configResolved() {
             console.log('i18n-plugin loaded');
         },
@@ -79,6 +88,7 @@ export const i18nPlugin: () => PluginOption = () => {
                     console.log('originalValue', originalValue);
                     const fileName = id.replace(/^(.*)(src.*)$/, '$2').replace(/\//g, '#')
                     const position = `${node.loc?.start.line}#${node.loc?.start.column}`;
+                    translationRecords.push({key: `${fileName}#${position}`, text: originalValue});
 
                     // 构造新的字符串，包含文件名称和位置信息
                     const newValue = `${originalValue} [${fileName}#${position}]`;
@@ -97,6 +107,16 @@ export const i18nPlugin: () => PluginOption = () => {
 
             // 生成新的代码
             const output = generate(ast, {}, code);
+            // 写入 csv 文件
+            if (isBuild) {
+                // 生成 CSV 内容
+                const csvContent = stringify(translationRecords, {
+                    header: true,
+                    columns: ["key", "text"], // 定义 CSV 列
+                });
+                // 写入 CSV 文件
+                fs.writeFileSync(csvFilePath, csvContent, "utf-8");
+            }
 
             return {
                 code: output.code,
