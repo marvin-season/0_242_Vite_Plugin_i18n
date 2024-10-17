@@ -1,24 +1,26 @@
 import { parse } from "@babel/parser";
 import babelTraverse from "@babel/traverse";
 import babelGenerate from "@babel/generator";
+import * as t from "@babel/types";
 import path from "path";
 import fs from "fs";
-import { stringify } from "csv-stringify/sync";
 
 const traverse = (babelTraverse as unknown as { default: typeof babelTraverse })
   .default;
 const generate = (babelGenerate as unknown as { default: typeof babelGenerate })
   .default;
 
-const csvFilePath = path.relative(process.cwd(), "translation_keys.csv");
+function createI18nCall(text: string) {
+  return t.callExpression(t.identifier("t"), [t.stringLiteral(text)]);
+}
 
-export default function tagText() {
+export default function replaceText() {
   const translationRecords: Array<{ key: string; text: string }> = [];
 
   return {
-    name: "vite-plugin-tag-text",
+    name: "vite-plugin-replace-text",
     enforce: "pre" as const,
-    apply: "serve" as const,
+    apply: "build" as const,
     transform(code: string, id: string) {
       // 只处理 .tsx 文件
       if (id.endsWith(".tsx")) {
@@ -47,11 +49,14 @@ export default function tagText() {
                 child.type === "JSXExpressionContainer" &&
                 child.expression.type === "StringLiteral"
               ) {
-                console.log("child.expression", child.expression.value);
                 // 为文本增加计数器
-                child.expression.value = `${
-                  child.expression.value
-                }${getMarkedText(child.expression.value)}`;
+                // child.expression.value = `${
+                //   child.expression.value
+                // }${getMarkedText(child.expression.value)}`;
+
+                child.expression = createI18nCall(
+                  getMarkedText(child.expression.value)
+                );
               }
 
               // //  <div>中文文本</div>
@@ -95,19 +100,26 @@ export default function tagText() {
         // 使用 @babel/generator 生成修改后的代码
         const output = generate(ast, {}, code).code;
 
+        // 获取文件的相对路径
+        const relativePath = path.relative(process.cwd(), id);
+
+        // 新的根目录，所有输出文件都会在该目录下
+        const outputDir = path.join(process.cwd(), "output");
+
+        // 生成新的输出路径，保持相同的目录结构
+        const newFilePath = path.join(outputDir, relativePath);
+
+        // 确保输出目录存在，如果不存在则创建
+        const newFileDir = path.dirname(newFilePath);
+        fs.mkdirSync(newFileDir, { recursive: true });
+
+        // 写入新的文件
+        fs.writeFileSync(newFilePath, output, "utf-8");
+
         return output; // 返回修改后的代码
       }
 
       return code;
-    },
-    buildEnd() {
-      // 生成 CSV 内容
-      const csvContent = stringify(translationRecords, {
-        header: true,
-        columns: ["key", "text"], // 定义 CSV 列
-      });
-      // 写入 CSV 文件
-      fs.writeFileSync(csvFilePath, csvContent, "utf-8");
     },
   };
 }
