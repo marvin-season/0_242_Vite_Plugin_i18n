@@ -100,7 +100,7 @@ export const i18nPlugin: () => PluginOption = () => {
                     translationRecords.push({key: `${fileName}#${position}`, text: originalValue});
 
                     // 构造新的字符串，包含文件名称和位置信息
-                    const newValue = `${originalValue} [${fileName}#${position}]`;
+                    const newValue = `${originalValue} 【【${parent.type}】${fileName}#${position}】`;
                     // 替换原来的字符串节点
                     path.replaceWith(types.stringLiteral(newValue));
 

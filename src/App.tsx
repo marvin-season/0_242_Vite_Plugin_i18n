@@ -8,7 +8,7 @@ enum Colors {
 
 function App() {
   const text = "中文文本";
-  const text2 = `${text} | 中文文本`;
+  const text2 = `${text}中文文本`;
 
   return (
     <>
