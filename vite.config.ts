@@ -6,12 +6,14 @@ import babelGenerate from "@babel/generator";
 import path from "path";
 import fs from "fs";
 import { stringify } from "csv-stringify/sync";
+import {i18nPlugin} from "./plugins/i18n";
 
 const traverse = (babelTraverse as unknown as { default: typeof babelTraverse; }).default;
 const generate = (babelGenerate as unknown as { default: typeof babelGenerate; }).default;
 
 const csvFilePath = path.relative(process.cwd(), "translation_keys.csv");
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function tagText() {
   let isBuild = false;
   const translationRecords: Array<{ key: string; text: string }> = [];
@@ -127,5 +129,5 @@ function tagText() {
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), tagText()],
+  plugins: [react(), i18nPlugin()],
 });
