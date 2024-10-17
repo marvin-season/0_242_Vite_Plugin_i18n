@@ -1,14 +1,15 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { parse } from "@babel/parser";
-import * as babelTraverse from "@babel/traverse";
-import * as babelGenerate from "@babel/generator";
+import babelTraverse from "@babel/traverse";
+import babelGenerate from "@babel/generator";
 import path from "path";
 import fs from "fs";
 import { stringify } from "csv-stringify/sync";
 
-const traverse = babelTraverse.default;
-const generate = babelGenerate.default;
+const traverse = (babelTraverse as unknown as { default: typeof babelTraverse; }).default;
+const generate = (babelGenerate as unknown as { default: typeof babelGenerate; }).default;
+
 const csvFilePath = path.relative(process.cwd(), "translation_keys.csv");
 
 function tagText() {
@@ -45,7 +46,7 @@ function tagText() {
           return key;
         }
 
-        traverse.default(ast, {
+        traverse(ast, {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           JSXElement(path: { node: { children: any[] } }) {
             path.node.children.forEach(
@@ -73,12 +74,7 @@ function tagText() {
               }
             );
           },
-          VariableDeclarator(path: {
-            node: {
-              id: { type: string };
-              init: { type: string; value: string };
-            };
-          }) {
+          VariableDeclarator(path) {
             // const text = "中文文本";
             if (path.node.id.type === "Identifier") {
               if (path.node.init?.type === "StringLiteral") {
@@ -88,7 +84,7 @@ function tagText() {
               }
             }
           },
-          TemplateElement(path: { node: { value: { raw: string } } }) {
+          TemplateElement(path) {
             // const text2 = `${text} | 中文文本`;
             if (path.node.value.raw.trim().length > 0) {
               path.node.value.raw = `${path.node.value.raw}${getMarkedText(
@@ -96,12 +92,7 @@ function tagText() {
               )}`;
             }
           },
-          JSXAttribute(path: {
-            node: {
-              name: { name: string };
-              value: { type: string; value: string };
-            };
-          }) {
+          JSXAttribute(path) {
             // <input type="text" value="中文文本" />
             if (
               path.node.name.name === "value" &&
@@ -115,7 +106,7 @@ function tagText() {
         });
 
         // 使用 @babel/generator 生成修改后的代码
-        const output = generate.default(ast, {}, code).code;
+        const output = generate(ast, {}, code).code;
 
         // 写入修改后的代码到文件
         // fs.writeFileSync(id, output, "utf-8");
