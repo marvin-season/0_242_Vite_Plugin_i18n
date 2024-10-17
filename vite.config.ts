@@ -7,25 +7,19 @@ import path from "path";
 import fs from "fs";
 import { stringify } from "csv-stringify/sync";
 
-const traverse = (babelTraverse as unknown as { default: typeof babelTraverse; }).default;
-const generate = (babelGenerate as unknown as { default: typeof babelGenerate; }).default;
+const traverse = (babelTraverse as unknown as { default: typeof babelTraverse })
+  .default;
+const generate = (babelGenerate as unknown as { default: typeof babelGenerate })
+  .default;
 
 const csvFilePath = path.relative(process.cwd(), "translation_keys.csv");
 
 function tagText() {
-  let isBuild = false;
   const translationRecords: Array<{ key: string; text: string }> = [];
 
   return {
     name: "vite-plugin-tag-text",
     enforce: "pre" as const,
-    config(
-      _: unknown,
-      { command }: { command: "build" | "serve"; mode: string }
-    ) {
-      // 判断当前是否处于 build 模式
-      isBuild = command === "build";
-    },
     transform(code: string, id: string) {
       // 只处理 .tsx 文件
       if (id.endsWith(".tsx")) {
@@ -48,26 +42,24 @@ function tagText() {
 
         traverse(ast, {
           JSXElement(path) {
-            path.node.children.forEach(
-              (child) => {
-                // <div>{"中文文本"}</div>
-                if (
-                  child.type === "JSXExpressionContainer" &&
-                  child.expression.type === "StringLiteral"
-                ) {
-                  // 为文本增加计数器
-                  child.expression.value = `${
-                    child.expression.value
-                  }${getMarkedText(child.expression.value)}`;
-                }
-
-                //  <div>中文文本</div>
-                if (child.type === "JSXText" && child.value.trim().length > 0) {
-                  // 为文本增加计数器
-                  child.value = `${child.value}${getMarkedText(child.value)}`;
-                }
+            path.node.children.forEach((child) => {
+              // <div>{"中文文本"}</div>
+              if (
+                child.type === "JSXExpressionContainer" &&
+                child.expression.type === "StringLiteral"
+              ) {
+                // 为文本增加计数器
+                child.expression.value = `${
+                  child.expression.value
+                }${getMarkedText(child.expression.value)}`;
               }
-            );
+
+              //  <div>中文文本</div>
+              if (child.type === "JSXText" && child.value.trim().length > 0) {
+                // 为文本增加计数器
+                child.value = `${child.value}${getMarkedText(child.value)}`;
+              }
+            });
           },
           VariableDeclarator(path) {
             // const text = "中文文本";
@@ -103,24 +95,19 @@ function tagText() {
         // 使用 @babel/generator 生成修改后的代码
         const output = generate(ast, {}, code).code;
 
-        // 写入修改后的代码到文件
-        // fs.writeFileSync(id, output, "utf-8");
-
-        // 写入 csv 文件
-        if (isBuild) {
-          // 生成 CSV 内容
-          const csvContent = stringify(translationRecords, {
-            header: true,
-            columns: ["key", "text"], // 定义 CSV 列
-          });
-          // 写入 CSV 文件
-          fs.writeFileSync(csvFilePath, csvContent, "utf-8");
-        }
-
         return output; // 返回修改后的代码
       }
 
       return code;
+    },
+    buildEnd() {
+      // 生成 CSV 内容
+      const csvContent = stringify(translationRecords, {
+        header: true,
+        columns: ["key", "text"], // 定义 CSV 列
+      });
+      // 写入 CSV 文件
+      fs.writeFileSync(csvFilePath, csvContent, "utf-8");
     },
   };
 }
